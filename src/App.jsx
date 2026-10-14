@@ -1,45 +1,27 @@
-
-import { useState } from "react";
-import {BrowserRouter, Routes, Route, useNavigate, useParams,} from "react-router-dom";
+import { useState, useEffect } from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import HomePage from "./pages/Homepage";
 import WatchRoom from "./pages/WatchRoom";
-import Toast from "./components/Toast"; 
-
-const initialPeople = [
-  {
-    id: 1,
-    name: "Sakshi",
-    initials: "S",
-    role: "Host",
-    color: "from-violet-500 to-indigo-500",
-    you: true,
-  },
-  {
-    id: 2,
-    name: "Aarav",
-    initials: "A",
-    role: "Moderator",
-    color: "from-sky-500 to-cyan-400",
-  },
-  {
-    id: 3,
-    name: "Priya",
-    initials: "P",
-    role: "Participant",
-    color: "from-pink-500 to-rose-400",
-  },
-];
+import Toast from "./components/Toast";
+import { socket } from "./socket.js";
+import { formatPeople } from "./utils/people.js";
 
 function AppContent() {
   const navigate = useNavigate();
-  const { roomCode } = useParams();
+  const location = useLocation();
 
-  const [username, setUsername] = useState("Sakshi");
-  const [people, setPeople] = useState(initialPeople);
+  const [username, setUsername] = useState("");
+  const [people, setPeople] = useState([]); // filled by the server
   const [videoId, setVideoId] = useState("dQw4w9WgXcQ");
-  const [role, setRole] = useState("Host");
+  const [role, setRole] = useState("Participant");
   const [toast, setToast] = useState("");
 
   function notify(message) {
@@ -47,29 +29,59 @@ function AppContent() {
     window.setTimeout(() => setToast(""), 2500);
   }
 
+  useEffect(() => {
+    function onError(data) {
+      notify(data.message);
+    }
+    function onInfo(data) {
+      notify(data.message);
+    }
+    function onDisconnect() {
+      notify("Disconnected from server.");
+      navigate("/");
+    }
+
+    socket.on("error_message", onError);
+    socket.on("info_message", onInfo);
+    socket.on("disconnect", onDisconnect);
+
+    return () => {
+      socket.off("error_message", onError);
+      socket.off("info_message", onInfo);
+      socket.off("disconnect", onDisconnect);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (location.pathname === "/") {
+      socket.emit("leave_room");
+    }
+  }, [location.pathname]);
+
+  function enterRoom(res) {
+    setPeople(formatPeople(res.participants, socket.id));
+    setRole(res.role);
+    setVideoId(res.videoId);
+    navigate(`/room/${res.roomId}`);
+  }
+
   function createRoom() {
-    const code = Math.random()
-      .toString(36)
-      .slice(2, 8)
-      .toUpperCase();
+    if (!socket.connected) {
+      notify("Cannot reach the server. Is the backend running?");
+      return;
+    }
 
     const name = username.trim() || "Host";
-
     setUsername(name);
-    setRole("Host");
-    setPeople([
-      {
-        id: Date.now(),
-        name,
-        initials: name[0].toUpperCase(),
-        role: "Host",
-        color: "from-violet-500 to-indigo-500",
-        you: true,
-      },
-    ]);
 
-    navigate(`/room/${code}`);
-    notify("Watch room created!");
+    socket.emit("create_room", { username: name }, (res) => {
+      if (!res.ok) {
+        notify(res.error);
+        return;
+      }
+      enterRoom(res);
+      notify("Watch room created!");
+    });
   }
 
   function joinRoom(code) {
@@ -79,31 +91,22 @@ function AppContent() {
       notify("Please enter a room code.");
       return;
     }
+    if (!socket.connected) {
+      notify("Cannot reach the server. Is the backend running?");
+      return;
+    }
 
-    const name = username.trim() || "Participant";
-
+    const name = username.trim() || "Guest";
     setUsername(name);
-    setRole("Participant");
-    setPeople([
-      {
-        id: 1,
-        name: "Room Host",
-        initials: "H",
-        role: "Host",
-        color: "from-violet-500 to-indigo-500",
-      },
-      {
-        id: Date.now(),
-        name,
-        initials: name[0].toUpperCase(),
-        role: "Participant",
-        color: "from-sky-500 to-cyan-400",
-        you: true,
-      },
-    ]);
 
-    navigate(`/room/${cleanCode}`);
-    notify(`Joined demo room ${cleanCode}`);
+    socket.emit("join_room", { roomId: cleanCode, username: name }, (res) => {
+      if (!res.ok) {
+        notify(res.error);
+        return;
+      }
+      enterRoom(res);
+      notify(`Joined room ${cleanCode}`);
+    });
   }
 
   return (
@@ -127,7 +130,6 @@ function AppContent() {
           path="/room/:roomCode"
           element={
             <WatchRoom
-              roomCode={roomCode}
               username={username}
               role={role}
               setRole={setRole}
