@@ -1,10 +1,11 @@
 {
-  "name": "watch-party-backend",
+  "name": "watch-party-backend",  
   "version": "1.0.0",
   "private": true,
-  "type": "commonjs",
+  "type": "commonjs",  
   "main": "server.js",
-  "scripts": {
+  "scripts": {   
+    "build": "echo no build step",
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
