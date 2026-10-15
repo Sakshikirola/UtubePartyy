@@ -13,8 +13,21 @@ export default function RoomChat() {
     function onChat(msg) {
       setMessages((current) => [...current, msg]);
     }
+    // Old messages saved in the database (sent when we enter the room)
+    function onHistory(data) {
+      setMessages(
+        data.messages.map((m) => ({ ...m, id: `old-${m.id}`, userId: null }))
+      );
+    }
+
     socket.on("chat_message", onChat);
-    return () => socket.off("chat_message", onChat);
+    socket.on("chat_history", onHistory);
+    socket.emit("request_chat_history");
+
+    return () => {
+      socket.off("chat_message", onChat);
+      socket.off("chat_history", onHistory);
+    };
   }, []);
 
   // Scroll to the newest message

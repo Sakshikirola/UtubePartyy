@@ -1,7 +1,9 @@
+require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
+const db = require("./db");
 
 const PORT = process.env.PORT || 4000;
 const CLIENT_URL = process.env.CLIENT_URL || "*";
@@ -51,6 +53,21 @@ function makeRoomCode() {
   return code;
 }
 
+// Rebuild an in-memory room from a row saved in Supabase.
+// Nobody is connected yet, and the video starts paused.
+function roomFromDb(row) {
+  return {
+    id: row.id,
+    users: {},
+    videoId: row.video_id,
+    playState: "paused",
+    currentTime: row.current_time_sec,
+    updatedAt: Date.now(),
+    requests: [],
+    joinedNames: row.participants || [],
+  };
+}
+
 function cleanName(name, fallback) {
   return String(name || "").trim().slice(0, 20) || fallback;
 }
@@ -69,6 +86,12 @@ function getParticipants(room) {
     username: u.username,
     role: u.role,
   }));
+}
+
+// Remember a name that joined and save host + names to Supabase.
+function rememberJoined(room, username) {
+  if (!room.joinedNames.includes(username)) room.joinedNames.push(username);
+  db.savePeople(room);
 }
 
 function getCurrentTime(room) {
@@ -116,6 +139,7 @@ function applyAction(room, action, data) {
 
   room.updatedAt = Date.now();
   io.to(room.id).emit("sync_state", getState(room));
+  db.saveRoom(room, room.currentTime); // save to Supabase (no need to wait)
   return true;
 }
 
@@ -148,6 +172,7 @@ function leaveCurrentRoom(socket) {
     const others = Object.values(room.users);
     const newHost = others.find((u) => u.role === "Moderator") || others[0];
     newHost.role = "Host";
+    db.savePeople(room);
     io.to(roomId).emit("host_changed", {
       userId: newHost.id,
       username: newHost.username,
@@ -197,11 +222,14 @@ io.on("connection", (socket) => {
       currentTime: 0,
       updatedAt: Date.now(),
       requests: [],
+      joinedNames: [],
     };
     rooms[roomId] = room;
+    db.saveRoom(room, 0);
 
     const username = cleanName(data && data.username, "Host");
     addUser(room, socket, username, "Host");
+    rememberJoined(room, username);
 
     reply(callback, {
       ok: true,
@@ -212,18 +240,29 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("join_room", (data, callback) => {
+  socket.on("join_room", async (data, callback) => {
     const roomId = String((data && data.roomId) || "").trim().toUpperCase();
-    const room = rooms[roomId];
+
+    // 1) Room in memory? 2) If not, maybe it is saved in Supabase.
+    let room = rooms[roomId];
+    if (!room) {
+      const row = await db.loadRoom(roomId);
+      room = rooms[roomId] || (row ? roomFromDb(row) : null);
+    }
 
     if (!room) {
       reply(callback, { ok: false, error: "Room not found. Check the code." });
       return;
     }
 
-    leaveCurrentRoom(socket);
+    leaveCurrentRoom(socket); // this may delete an empty room from memory...
+    rooms[roomId] = room; // ...so make sure it is there
+
+    // The first person into an empty (restored) room becomes the Host
+    const role = Object.keys(room.users).length === 0 ? "Host" : "Participant";
     const username = cleanName(data.username, "Guest");
-    const user = addUser(room, socket, username, "Participant");
+    const user = addUser(room, socket, username, role);
+    rememberJoined(room, username);
     const participants = getParticipants(room);
 
     reply(callback, {
@@ -344,6 +383,7 @@ io.on("connection", (socket) => {
 
     ctx.user.role = "Moderator"; // old host becomes Moderator
     target.role = "Host";
+    db.savePeople(ctx.room);
     io.to(ctx.room.id).emit("host_changed", {
       userId: target.id,
       username: target.username,
@@ -416,12 +456,21 @@ io.on("connection", (socket) => {
     sendRequests(ctx.room);
   });
 
+  socket.on("request_chat_history", async () => {
+    const ctx = getContext(socket);
+    if (!ctx) return;
+    const messages = await db.loadMessages(ctx.room.id);
+    socket.emit("chat_history", { messages });
+  });
+
   socket.on("chat_message", (data) => {
     const ctx = getContext(socket);
     if (!ctx) return;
 
     const text = String((data && data.text) || "").trim().slice(0, 300);
     if (!text) return;
+
+    db.saveMessage(ctx.room.id, ctx.user.username, text);
 
     io.to(ctx.room.id).emit("chat_message", {
       id: nextMessageId++,
