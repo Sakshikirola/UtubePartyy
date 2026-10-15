@@ -484,3 +484,5 @@ io.on("connection", (socket) => {
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+app.get("/health", (req, res) => res.json({ ok: true }));
