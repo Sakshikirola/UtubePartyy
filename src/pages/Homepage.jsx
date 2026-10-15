@@ -7,7 +7,7 @@ import {
   Video,
   Shield,
   MessageCircle,
-} from "lucide-react";
+} from "lucide-react"; 
 
 export default function HomePage({
   username,
@@ -25,21 +25,14 @@ export default function HomePage({
     <main className="relative mx-auto min-h-[calc(100vh-76px)] max-w-5xl px-5 py-12 md:py-16">
       <div className="pointer-events-none absolute left-1/4 top-0 -z-10 h-72 w-72 rounded-full bg-violet-700/10 blur-[120px]" />
 
-      <section className="mb-12 text-center">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-400/8 px-4 py-2 text-xs text-violet-200">
-          Your people. Your videos. One room.
-        </div>
-
-        <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-6xl">
-          Movie night is better{" "}
-          <span className="bg-linear-to-r from-violet-400 via-indigo-300 to-blue-400 bg-clip-text text-transparent">
-            together.
-          </span>
+      <section className="mb-10 text-center">
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          YouTube Watch Party
         </h1>
 
-        <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-zinc-400 sm:text-base"> 
-          Create a private room, invite your friends, and watch YouTube
-          together from different places.
+        <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-400">
+          Create or join a room and watch YouTube videos in sync, with
+          role-based playback control.
         </p>
       </section>
 
@@ -96,7 +89,7 @@ export default function HomePage({
               onKeyDown={(e) =>
                 e.key === "Enter" && onJoinRoom(joinCode)
               }
-              placeholder="E.G. MOVIE42"
+              placeholder="E.G. K7M2QX"
               className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm uppercase tracking-widest outline-none focus:border-blue-400/60"
             />
 
