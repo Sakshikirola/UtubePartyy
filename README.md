@@ -5,8 +5,8 @@ join with a 6-character code or an invite link, and play / pause / seek /
 change-video stay in sync for everyone. Rooms have roles (Host, Moderator,
 Participant) that the **server** enforces.
 
-**Live app:** https://YOUR-APP.vercel.app
-**Backend:** https://YOUR-BACKEND.onrender.com
+Live app: https://utube-partyy.vercel.app/
+Backend: https://utubepartyy.onrender.com
 
 ## Tech stack
 
