@@ -1,4 +1,3 @@
-
 export function getYouTubeVideoId(value) {
   try {
     const url = new URL(value);

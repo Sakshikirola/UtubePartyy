@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Users,
@@ -14,7 +15,11 @@ export default function HomePage({
   onCreateRoom,
   onJoinRoom,
 }) {
-  const [joinCode, setJoinCode] = useState("");
+  // /?room=ABC123 (from an invite link) pre-fills the room code
+  const [searchParams] = useSearchParams();
+  const [joinCode, setJoinCode] = useState(
+    (searchParams.get("room") || "").toUpperCase()
+  );
 
   return (
     <main className="relative mx-auto min-h-[calc(100vh-76px)] max-w-5xl px-5 py-12 md:py-16">
@@ -106,8 +111,8 @@ export default function HomePage({
           <div className="mt-6 flex gap-3 rounded-xl border border-white/6 bg-white/2.5 p-4">
             <Shield size={17} className="mt-0.5 shrink-0 text-emerald-400" />
             <p className="text-xs leading-5 text-zinc-400">
-              Hosts and Moderators will have playback controls in the
-              completed application.
+              Hosts and Moderators control playback. Participants can watch
+              and send requests for them to approve.
             </p>
           </div>
         </section>

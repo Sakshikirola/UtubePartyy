@@ -1,35 +1,20 @@
 import { useState } from "react";
 import { Crown, MoreHorizontal, Shield, Users, X } from "lucide-react";
 import Avatar from "./Avatar";
+import { socket } from "../socket";
 
-export default function ParticipantList({
-  people,
-  role,
-  setPeople,
-  notify,
-}) {
+export default function ParticipantList({ people, role, notify }) {
   const [openMenu, setOpenMenu] = useState(null);
   const isHost = role === "Host";
 
+  // The server checks the role again, and then tells everyone (role_assigned).
   function assignRole(id, nextRole) {
     if (!isHost) {
       notify("Only the Host can assign roles.");
       return;
     }
-
-    if (nextRole === "Host") {
-      notify("Host transfer is not implemented.");
-      return;
-    }
-
-    setPeople((current) =>
-      current.map((person) =>
-        person.id === id ? { ...person, role: nextRole } : person
-      )
-    );
-
+    socket.emit("assign_role", { userId: id, role: nextRole });
     setOpenMenu(null);
-    notify("Participant role updated.");
   }
 
   function removePerson(id) {
@@ -37,10 +22,17 @@ export default function ParticipantList({
       notify("Only the Host can remove participants.");
       return;
     }
-
-    setPeople((current) => current.filter((person) => person.id !== id));
+    socket.emit("remove_participant", { userId: id });
     setOpenMenu(null);
-    notify("Participant removed from the demo.");
+  }
+
+  function makeHost(id) {
+    if (!isHost) {
+      notify("Only the Host can transfer the Host role.");
+      return;
+    }
+    socket.emit("transfer_host", { userId: id });
+    setOpenMenu(null);
   }
 
   return (
@@ -121,6 +113,14 @@ export default function ParticipantList({
                     >
                       <Users size={14} />
                       Make Participant
+                    </button>
+
+                    <button
+                      onClick={() => makeHost(person.id)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-white/[0.07]"
+                    >
+                      <Crown size={14} />
+                      Make Host
                     </button>
 
                     <button

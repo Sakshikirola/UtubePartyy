@@ -22,6 +22,7 @@ function AppContent() {
   const [people, setPeople] = useState([]); // filled by the server
   const [videoId, setVideoId] = useState("dQw4w9WgXcQ");
   const [role, setRole] = useState("Participant");
+  const [roomId, setRoomId] = useState(""); // the room I have really joined
   const [toast, setToast] = useState("");
 
   function notify(message) {
@@ -55,6 +56,7 @@ function AppContent() {
   useEffect(() => {
     if (location.pathname === "/") {
       socket.emit("leave_room");
+      setRoomId("");
     }
   }, [location.pathname]);
 
@@ -62,6 +64,7 @@ function AppContent() {
     setPeople(formatPeople(res.participants, socket.id));
     setRole(res.role);
     setVideoId(res.videoId);
+    setRoomId(res.roomId);
     navigate(`/room/${res.roomId}`);
   }
 
@@ -130,13 +133,12 @@ function AppContent() {
           path="/room/:roomCode"
           element={
             <WatchRoom
-              username={username}
+              joinedRoomId={roomId}
               role={role}
               setRole={setRole}
               people={people}
               setPeople={setPeople}
               videoId={videoId}
-              setVideoId={setVideoId}
               notify={notify}
             />
           }
